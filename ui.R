@@ -1,0 +1,61 @@
+library(shiny)
+library(leaflet)
+library(shinyjs)
+
+
+shinyUI(fluidPage(mainPanel(h3("divRs"),
+                            div(class="outer",
+                                tags$head(
+                                  # Include our custom CSS
+                                  includeCSS("styles.css")),
+                                leafletOutput("map", width="100%", height="100%")
+                                )
+),
+absolutePanel(id = "palette", class = "panel panel-default", fixed = TRUE,
+              draggable = TRUE, top = 60, left = 20, right = "auto", bottom = "auto",
+              width = 330, height = "auto",
+              h2("Colour"),
+              colourInput("colour",
+                          "Pick a colour",
+                          value = "white", 
+                          showColour = c("both", 
+                                         "text",
+                                         "background"),
+                          palette = "square", 
+                          allowTransparent = FALSE),
+#               selectInput("caption","Tag",server$taglist[server$taglist$layerId==client$selected$layerId,server$label],selected=NULL),
+#               actionLink('addLegend', 'Add legend'),
+              
+              tableOutput("labels"),
+              htmlOutput("eplanete")
+
+),
+absolutePanel(id = "controls", class = "panel panel-default", fixed = TRUE,
+              draggable = TRUE, top = 60, left = "auto", right = 20, bottom = "auto",
+              width = 330, height = "auto",
+              h2("Controls"),
+              textInput("user","User",value="user 1"),
+              htmlOutput("selected"),
+              checkboxInput('addMarkerOnClick', 'Add marker on click', FALSE),
+              actionLink('hideMarkers', 'Hide markers'),
+              actionLink('showMarkers', 'Show markers'),
+              checkboxInput('addLineOnClick', 'Add Line on clicks', FALSE),
+              actionLink('hideLines', 'Hide lines'),
+              actionLink('showLines', 'Show lines'),
+              checkboxInput('addPolygonOnClick', 'Add polygon on clicks', FALSE),
+              actionLink('hidePolygons', 'Hide polygons'),
+              actionLink('showPolygons', 'Show polygons'),                                 
+              textInput("category", "New category"),
+              actionButton("tag","Tag"),
+              textInput("url", "New link"),
+              actionButton("link","Link"),
+              htmlOutput("buffer")
+),
+tags$div(id="cite",
+         'Proof of concept for ', tags$em('AMORAD 2015'), ' by Bastien Tran (REEDS-OVSQ, 2015).'
+)
+)
+                   
+        )
+
+
