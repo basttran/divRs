@@ -66,7 +66,7 @@ shinyServer(function(input, output, session) {
 ####Select marker####
   
 ####Add polygon######
-  #Creates a new point on the map and adds it to the list of points (buffer) that will later define the polygon
+  #Creates a new point on the map and adds it to the list of points (buffer) that will later define the line
   observeEvent(input$map_click, {
     if (!input$addPolygonOnClick)
       return()
@@ -142,6 +142,85 @@ shinyServer(function(input, output, session) {
     saveRDS(server$items,"items.Rds")
   })
 ####Add polygon######
+
+#####Add polyline######
+  #Creates a new point on the map and adds it to the list of points (buffer) that will later define the line
+  observeEvent(input$map_click, {
+    if (!input$addLineOnClick)
+      return()
+    if (is.null(client$buffer))
+      server$items[[length(server$items)+1]]<-client$current<-length(server$items)+1
+    event <- input$map_click
+    id<-as.character(as.integer(length(server$items))+1)
+    leafletProxy("map") %>% addCircleMarkers(lng=as.double(event$lng),
+                                             lat=as.double(event$lat),
+                                             radius=10,
+                                             layerId = id,
+                                             stroke = TRUE,
+                                             color = "blue", weight = 5, opacity = 0.5, fill = TRUE, fillColor = "blue",
+                                             fillOpacity = 0.2)
+    server$items[[length(server$items)+1]]<-server$points[[length(server$points)+1]]<-client$selected<-data.frame(lng=event$lng,
+                                                                                                                  lat=event$lat,
+                                                                                                                  layerId=id,
+                                                                                                                  pointId=id,
+                                                                                                                  user=as.character(input$user),
+                                                                                                                  stringsAsFactors = FALSE)
+    client$buffer<-rbind(client$buffer,data.frame(lng=event$lng,
+                                                  lat=event$lat,
+                                                  layerId=id,
+                                                  pointId=id,
+                                                  user=as.character(input$user),
+                                                  stringsAsFactors = FALSE))
+    
+    
+    
+    if (length(client$buffer$pointId)==2) {
+      client$buffer[,3]<-as.integer(length(server$items))+1
+      client$buffer<-rbind(client$buffer,NA)
+      server$items[[length(server$items)+1]]<-server$lines[[length(server$lines)+1]]<-client$buffer
+      client$selected<-data.frame(lng=as.double(event$lng), lat=as.double(event$lat),layerId=as.integer(length(server$items)))
+      leafletProxy("map") %>% addPolylines(lng=client$buffer$lng,
+                                           lat=client$buffer$lat,
+                                           layerId = unique(na.omit(client$buffer$layerId)))
+      client$buffer<-NULL
+    } else {
+      return()
+      
+    }
+  })
+#Adds an existing point to the list of points (buffer) that will later define the polygon
+  observeEvent(input$map_marker_click, {
+    if (!input$addLineOnClick)
+      return()
+    if (is.null(client$buffer))
+      server$items[[length(server$items)+1]]<-client$current<-length(server$items)+1
+    #Then we add the point to the list
+    event<-input$map_marker_click
+    id<-as.character(as.integer(length(server$items))+1)
+    client$selected<-data.frame(lng=event$lng,
+                                lat=event$lat,
+                                layerId=event$id,
+                                pointId=event$id,
+                                user=as.character(input$user),
+                                stringsAsFactors = FALSE)
+    
+    client$buffer<-rbind(client$buffer,client$selected)
+    
+    
+    if (length(client$buffer$pointId)==2) {
+      client$buffer[,3]<-as.integer(length(server$items))+1
+      client$buffer<-rbind(client$buffer,NA)
+      server$items[[length(server$items)+1]]<-server$lines[[length(server$lines)+1]]<-client$buffer
+      client$selected<-data.frame(lng=as.double(event$lng), lat=as.double(event$lat),layerId=as.integer(length(server$items)))
+      leafletProxy("map") %>% addPolylines(lng=client$buffer$lng,
+                                           lat=client$buffer$lat,
+                                           layerId = unique(na.omit(client$buffer$layerId)))
+      client$buffer<-NULL
+    } else {
+      return()
+    }
+  })
+####Add polyline###### 
   
 ####Select shape######
   observeEvent(input$map_shape_click, {
@@ -175,61 +254,7 @@ shinyServer(function(input, output, session) {
   })
 ####Select shape######
   
-#####Add polyline######
-  observeEvent(input$map_click, {
-    if (!input$addLineOnClick)
-      return()
-    event <- input$map_click
-    client$selected<-data.frame(lng=event$lng,
-                                lat=event$lat,
-                                layerId=NA,
-                                pointId=as.integer(length(server$items))+1,
-                                user=as.character(input$user))
-    server$items[[length(server$items)+1]]<-server$points[[length(server$points)+1]]<-client$selected
-    leafletProxy("map") %>% addMarkers(lng=as.double(event$lng),
-                                       lat=as.double(event$lat), 
-                                       layerId = unique(client$selected$pointId))
-    client$buffer<-rbind(client$buffer,client$selected)
-    if (length(client$buffer$pointId)==2) {
-      client$buffer[,3]<-as.integer(length(server$items))+1
-      client$buffer<-rbind(client$buffer,NA)
-      server$items[[length(server$items)+1]]<-server$lines[[length(server$lines)+1]]<-client$buffer
-      client$selected<-data.frame(lng=as.double(event$lng), lat=as.double(event$lat),layerId=as.integer(length(server$items)))
-      leafletProxy("map") %>% addPolylines(lng=client$buffer$lng,
-                                           lat=client$buffer$lat,
-                                           layerId = unique(na.omit(client$buffer$layerId)))
-      client$buffer<-NULL
-    } else {
-      return()
-      
-    }
-  })
-  observeEvent(input$map_marker_click, {
-    if (!input$addLineOnClick)
-      return()
-    event <- input$map_marker_click
-    
-    client$selected<-data.frame(lng=event$lng,
-                                lat=event$lat,
-                                layerId=NA,
-                                pointId=event$id,
-                                user=as.character(input$user))
-    
-    client$buffer<-rbind(client$buffer,client$selected)
-    if (length(client$buffer$pointId)==2) {
-      client$buffer[,3]<-as.integer(length(server$items))+1
-      client$buffer<-rbind(client$buffer,NA)
-      server$items[[length(server$items)+1]]<-server$lines[[length(server$lines)+1]]<-client$buffer
-      client$selected<-data.frame(lng=as.double(event$lng), lat=as.double(event$lat),layerId=as.integer(length(server$items)))
-      leafletProxy("map") %>% addPolylines(lng=client$buffer$lng,
-                                           lat=client$buffer$lat,
-                                           layerId = unique(na.omit(client$buffer$layerId)))
-      client$buffer<-NULL
-    } else {
-      return()
-    }
-  })
-####Add polyline###### 
+
 
 ######Hide/Show######
   observeEvent(input$hideMarkers, {
