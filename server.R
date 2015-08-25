@@ -42,29 +42,6 @@ shinyServer(function(input, output, session) {
 #     saveRDS(server$items,"items.Rds")
   })
 ####Add marker######  
-  
-####Select marker####
-  observeEvent(input$map_marker_click, {
-    if (input$addMarkerOnClick || input$addPolygonOnClick || input$addLineOnClick)
-      return()
-    event<-input$map_marker_click
-    client$selected<-data.frame(lng=as.double(event$lng), 
-                              lat=as.double(event$lat),
-                              layerId=event$id,
-                              pointId=event$id,
-                              user=as.character(input$user),
-                              stringsAsFactors = FALSE)
-    
-    leafletProxy("map") %>% removeShape("selected") %>% addCircleMarkers(lng=as.double(event$lng),
-                                             lat=as.double(event$lat),
-                                             radius=10,
-                                             layerId = "selected",
-                                             stroke = TRUE,
-                                             color = "red", weight = 5, opacity = 0.5, fill = TRUE, fillColor = "red",
-                                             fillOpacity = 0.2)
-  })
-####Select marker####
-  
 ####Add polygon######
   #Creates a new point on the map and adds it to the list of points (buffer) that will later define the line
   observeEvent(input$map_click, {
@@ -142,7 +119,6 @@ shinyServer(function(input, output, session) {
     saveRDS(server$items,"items.Rds")
   })
 ####Add polygon######
-
 #####Add polyline######
   #Creates a new point on the map and adds it to the list of points (buffer) that will later define the line
   observeEvent(input$map_click, {
@@ -188,7 +164,7 @@ shinyServer(function(input, output, session) {
       
     }
   })
-#Adds an existing point to the list of points (buffer) that will later define the polygon
+  #Adds an existing point to the list of points (buffer) that will later define the polygon
   observeEvent(input$map_marker_click, {
     if (!input$addLineOnClick)
       return()
@@ -222,6 +198,27 @@ shinyServer(function(input, output, session) {
   })
 ####Add polyline###### 
   
+####Select marker####
+  observeEvent(input$map_marker_click, {
+    if (input$addMarkerOnClick || input$addPolygonOnClick || input$addLineOnClick)
+      return()
+    event<-input$map_marker_click
+    client$selected<-data.frame(lng=as.double(event$lng), 
+                                lat=as.double(event$lat),
+                                layerId=event$id,
+                                pointId=event$id,
+                                user=as.character(input$user),
+                                stringsAsFactors = FALSE)
+    
+    leafletProxy("map") %>% removeShape("selected") %>% addCircleMarkers(lng=as.double(event$lng),
+                                                                         lat=as.double(event$lat),
+                                                                         radius=10,
+                                                                         layerId = "selected",
+                                                                         stroke = TRUE,
+                                                                         color = "red", weight = 5, opacity = 0.5, fill = TRUE, fillColor = "red",
+                                                                         fillOpacity = 0.2)
+  })
+####Select marker####
 ####Select shape######
   observeEvent(input$map_shape_click, {
     if (input$addMarkerOnClick || input$addPolygonOnClick || input$addLineOnClick)
