@@ -6,7 +6,7 @@ library(shinyjs)
 shinyUI(fluidPage(mainPanel(h3("divRs"),
                             div(class="outer",
                                 tags$head(
-                                  # Include our custom CSS
+                                  # Include superzip's custom CSS
                                   includeCSS("styles.css")),
                                 leafletOutput("map", width="100%", height="100%")
                                 )
