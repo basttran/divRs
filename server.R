@@ -4,7 +4,7 @@ library(leaflet)
 library(plyr)
 library(dplyr)
 #######Functions and reactiveValues######
-server <- reactiveValues(items = list(),
+server <- reactiveValues(items = readRDS("items.Rds"),
                          points = list(),
                          lines = list(),
                          polygons = list(),
@@ -423,9 +423,15 @@ shinyServer(function(input, output, session) {
       setView(2,46,6)   
   })
   output$items <- renderDataTable({
-    items <- ldply(server$items, data.frame)
-    items
-  })
+    if(is.null(server$items)) {
+      items <- data.frame(1:3,1:3,1:3)
+    } else {
+      items <- ldply(server$items, data.frame)
+    }
+    items[,c(2,3)]
+  }, options = list(pageLength = 10,
+                    lengthChange = FALSE,
+                    dom = '<"top"i>rt<"bottom"fp><"clear">'))
 })
 ####Output####
 
