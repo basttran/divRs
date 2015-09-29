@@ -3,8 +3,9 @@ library(shinyjs)
 library(leaflet)
 library(plyr)
 library(dplyr)
+library(DT)
 #######Functions and reactiveValues######
-server <- reactiveValues(items = readRDS("items.Rds"),
+server <- reactiveValues(items = list(),
                          points = list(),
                          lines = list(),
                          polygons = list(),
@@ -28,15 +29,22 @@ shinyServer(function(input, output, session) {
                                     lat=event$lat,
                                     layerId=id,
                                     pointId=id,
-                                    user=as.character(input$user),
+                                    user=as.character(input$item),
                                     stringsAsFactors = FALSE)
       server$points[[length(server$points)+1]] <- client$selected
       server$items[[id]] <- data.frame(layerId=as.character(id),
                                                            type="point",
-                                                           author=input$user)
+                                                           author=input$item)
       leafletProxy("map") %>% addCircleMarkers(lng=event$lng,
                                                lat=event$lat,
-                                               layerId = id)
+                                               layerId = id,
+                                               stroke = input$stroke, 
+                                               color = input$strokeColor, 
+                                               weight = input$strokeWeight, 
+                                               opacity = input$strokeOpacity, 
+                                               fill = input$fill, 
+                                               fillColor = input$fillColor, 
+                                               fillOpacity = input$fillOpacity)
     }
   })
 ####Add marker######  
@@ -58,7 +66,7 @@ shinyServer(function(input, output, session) {
                                     lat = event$lat,
                                     layerId = id,
                                     pointId = id,
-                                    user = as.character(input$user),
+                                    user = as.character(input$item),
                                     stringsAsFactors = FALSE)
       client$buffer <- rbind(client$buffer,client$selected) # added to poly data
       ## and stored in server$points, where we will later retrieve its data
@@ -66,7 +74,7 @@ shinyServer(function(input, output, session) {
       ## and we store its ref in server$items
       server$items[[id]] <- data.frame(layerId = as.character(id),
                                        type = "point",
-                                       author = input$user)
+                                       author = input$item)
       ## we display this new marker as well as a temporary polygon
       leafletProxy("map") %>% addCircleMarkers(lng = as.double(event$lng),
                                                lat = as.double(event$lat),
@@ -94,7 +102,7 @@ shinyServer(function(input, output, session) {
                                   lat = event$lat,
                                   layerId = event$id,
                                   pointId = event$id,
-                                  user = as.character(input$user),
+                                  user = as.character(input$item),
                                   stringsAsFactors = FALSE)
     client$buffer <- rbind(client$buffer,client$selected) # added to poly's data
     ## we update the temporary polygon's display
@@ -117,7 +125,7 @@ shinyServer(function(input, output, session) {
       ## and we add these data ref to our items list
       server$items[[client$current]] <- data.frame(layerId = client$current,
                                                    type = "polygon",
-                                                   author = input$user)
+                                                   author = input$item)
       ## we display our finished polygon on the map                                                 
       leafletProxy("map") %>% addPolygons(lng = client$buffer$lng,
                                           lat = client$buffer$lat,
@@ -152,7 +160,7 @@ shinyServer(function(input, output, session) {
                                     lat = event$lat,
                                     layerId = id,
                                     pointId = id,
-                                    user = as.character(input$user),
+                                    user = as.character(input$item),
                                     stringsAsFactors = FALSE)
       client$buffer <- rbind(client$buffer,client$selected) # add to line's data
       ## and stored in server$points, where we will later retrieve its data
@@ -160,7 +168,7 @@ shinyServer(function(input, output, session) {
       ## and we store its ref in server$items
       server$items[[id]] <- data.frame(layerId = as.character(id),
                                        type = "point",
-                                       author = input$user)
+                                       author = input$item)
       ## we display this new marker
       leafletProxy("map") %>% addCircleMarkers(lng = as.double(event$lng),
                                                lat = as.double(event$lat),
@@ -176,7 +184,7 @@ shinyServer(function(input, output, session) {
       ## and we add these data ref to our items list
       server$items[[client$current]] <- data.frame(layerId = client$current,
                                                    type = "line",
-                                                   author = input$user)
+                                                   author = input$item)
       leafletProxy("map") %>% addPolylines(lng=client$buffer$lng,
                                            lat=client$buffer$lat,
                                            layerId = unique(
@@ -206,7 +214,7 @@ shinyServer(function(input, output, session) {
                                   lat = event$lat,
                                   layerId = event$id,
                                   pointId = event$id,
-                                  user = as.character(input$user),
+                                  user = as.character(input$item),
                                   stringsAsFactors = FALSE)
     client$buffer <- rbind(client$buffer,client$selected) # added to poly's data
     #Closes the shape if its first node is clicked
@@ -219,7 +227,7 @@ shinyServer(function(input, output, session) {
       ## and we add these data ref to our items list
       server$items[[client$current]] <- data.frame(layerId = client$current,
                                                    type = "line",
-                                                   author = input$user)
+                                                   author = input$item)
       leafletProxy("map") %>% addPolylines(lng=client$buffer$lng,
                                            lat=client$buffer$lat,
                                            layerId = unique(
@@ -243,7 +251,7 @@ shinyServer(function(input, output, session) {
                                   lat=as.double(event$lat),
                                   layerId=event$id,
                                   pointId=event$id,
-                                  user=as.character(input$user),
+                                  user=as.character(input$item),
                                   stringsAsFactors = FALSE)
       
       leafletProxy("map") %>% removeShape("selected") %>% 
@@ -271,7 +279,7 @@ shinyServer(function(input, output, session) {
       lines <- ldply(server$lines, data.frame)
       shapes<-rbind(polygons,lines)
       shapes<-shapes[shapes$layerId==event$id,]
-      if (input$user==1) {
+      if (input$item==1) {
         server$beacon1<-shapes
       } else {
         server$beacon2<-shapes
@@ -305,7 +313,7 @@ shinyServer(function(input, output, session) {
                                   lat=as.double(event$lat),
                                   layerId=event$id,
                                   pointId=event$id, 
-                                  user=as.character(input$user),
+                                  user=as.character(input$item),
                                   stringsAsFactors = FALSE)
     }
   })
@@ -359,35 +367,35 @@ shinyServer(function(input, output, session) {
   })
 ######Hide/Show######
 
+# ######Tags#####
+#   observe({
+#     if(input$tag < 1){return()}
+#     isolate({
+#       server$taglist<-rbind(server$taglist,
+#                             data.frame(layerId=client$selected$layerId,
+#                                        label=input$category,
+#                                        stringsAsFactors = FALSE)) 
+#     })
+#     updateTextInput(session, "category", value="")
+#   })
 ######Tags#####
-  observe({
-    if(input$tag < 1){return()}
-    isolate({
-      server$taglist<-rbind(server$taglist,
-                            data.frame(layerId=client$selected$layerId,
-                                       label=input$category,
-                                       stringsAsFactors = FALSE)) 
-    })
-    updateTextInput(session, "category", value="")
-  })
-######Tags#####
-######Links#####  
-  observe({
-    if(input$link < 1){return()}
-    isolate({
-      server$links<-
-        rbind(server$links,
-              data.frame(layerId=as.character(client$selected$layerId),
-                         url=paste("<a href= \"",
-                                   as.character(input$url),
-                                   "\">Check on ePlanet</a>",
-                                   sep=""),
-                         stringsAsFactors = FALSE)) 
-      saveRDS(server$links,"links.Rds")
-    })
-    updateTextInput(session, "url", value="")
-  })
-######Links#####  
+# ######Links#####  
+#   observe({
+#     if(input$link < 1){return()}
+#     isolate({
+#       server$links<-
+#         rbind(server$links,
+#               data.frame(layerId=as.character(client$selected$layerId),
+#                          url=paste("<a href= \"",
+#                                    as.character(input$url),
+#                                    "\">Check on ePlanet</a>",
+#                                    sep=""),
+#                          stringsAsFactors = FALSE)) 
+#       saveRDS(server$links,"links.Rds")
+#     })
+#     updateTextInput(session, "url", value="")
+#   })
+# ######Links#####  
   
   
 ####Output####
@@ -423,15 +431,18 @@ shinyServer(function(input, output, session) {
       setView(2,46,6)   
   })
   output$items <- renderDataTable({
-    if(is.null(server$items)) {
-      items <- data.frame(1:3,1:3,1:3)
-    } else {
-      items <- ldply(server$items, data.frame)
-    }
-    items[,c(2,3)]
+    items <- ldply(server$items, data.frame)
+    items[,c(3,4)]
   }, options = list(pageLength = 10,
                     lengthChange = FALSE,
-                    dom = '<"top"i>rt<"bottom"fp><"clear">'))
+                    dom = '<"top">rt<"bottom"fp><"clear">'))
+  
+  output$picked <- renderDataTable({
+    picked <- ldply(server$items, data.frame)
+    picked[input$items_rows_selected,c(3,4)]
+  }, options = list(pageLength = 10,
+                    lengthChange = FALSE,
+                    dom = '<"top"i>rt<"bottom"p><"clear">'))
 })
 ####Output####
 
