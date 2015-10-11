@@ -16,7 +16,8 @@ shinyServer(function(input, output, session) {
   
   client <- reactiveValues(selected = NULL,
                            current = NULL,
-                           buffer = NULL)
+                           buffer = NULL,
+                           test = 0)
                          
 ####Add marker######  
   observeEvent(input$map_click,{
@@ -118,9 +119,10 @@ shinyServer(function(input, output, session) {
       ## if so we remove the temporary polygon from the map
       leafletProxy("map") %>% removeShape(layerId = "buffer")
       ## we update the buffer/poly's data with the reserved id a
-      client$buffer$layerId <- client$current  
       client$buffer <- rbind(client$buffer,NA) # add a row of NAs as a separator
       ## we store this in server$polgons where we will later retrieve its data
+      client$buffer$layerId <- client$current  
+      
       server$polygons[[length(server$polygons)+1]] <- client$buffer
       ## and we add these data ref to our items list
       server$items[[client$current]] <- data.frame(layerId = client$current,
@@ -130,7 +132,14 @@ shinyServer(function(input, output, session) {
       leafletProxy("map") %>% addPolygons(lng = client$buffer$lng,
                                           lat = client$buffer$lat,
                                           layerId = unique(
-                                            na.omit(client$buffer$layerId)))
+                                            na.omit(client$buffer$layerId)),
+                                          stroke = input$stroke, 
+                                          color = input$strokeColor, 
+                                          weight = input$strokeWeight, 
+                                          opacity = input$strokeOpacity, 
+                                          fill = input$fill, 
+                                          fillColor = input$fillColor, 
+                                          fillOpacity = input$fillOpacity)
       ## we clear client$buffer & client$current so we can start new shapes 
       client$buffer<-NULL
       client$current<-NULL
@@ -177,8 +186,9 @@ shinyServer(function(input, output, session) {
     # if we actually created a second node we must close the line
     if (length(client$buffer$pointId)==2) {
       ## we update the buffer/poly's data with the reserved id a
-      client$buffer$layerId <- client$current  
       client$buffer <- rbind(client$buffer,NA) # add a row of NAs as a separator
+      client$buffer$layerId <- client$current  
+
       ## we store this in server$polgons where we will later retrieve its data
       server$lines[[length(server$lines)+1]] <- client$buffer
       ## and we add these data ref to our items list
@@ -188,7 +198,14 @@ shinyServer(function(input, output, session) {
       leafletProxy("map") %>% addPolylines(lng=client$buffer$lng,
                                            lat=client$buffer$lat,
                                            layerId = unique(
-                                             na.omit(client$buffer$layerId)))
+                                             na.omit(client$buffer$layerId)),
+                                           stroke = input$stroke, 
+                                           color = input$strokeColor, 
+                                           weight = input$strokeWeight, 
+                                           opacity = input$strokeOpacity, 
+                                           fill = input$fill, 
+                                           fillColor = input$fillColor, 
+                                           fillOpacity = input$fillOpacity)
       client$buffer<-NULL
       client$current<-NULL
       saveRDS(server$items,"items.Rds")
@@ -220,8 +237,9 @@ shinyServer(function(input, output, session) {
     #Closes the shape if its first node is clicked
     if (length(client$buffer$pointId)==2) {
       ## we update the buffer/poly's data with the reserved id a
+      client$buffer <- rbind(client$buffer,NA)
       client$buffer$layerId <- client$current  
-      client$buffer <- rbind(client$buffer,NA) # add a row of NAs as a separator
+       # add a row of NAs as a separator
       ## we store this in server$polgons where we will later retrieve its data
       server$lines[[length(server$lines)+1]] <- client$buffer
       ## and we add these data ref to our items list
@@ -231,7 +249,14 @@ shinyServer(function(input, output, session) {
       leafletProxy("map") %>% addPolylines(lng=client$buffer$lng,
                                            lat=client$buffer$lat,
                                            layerId = unique(
-                                             na.omit(client$buffer$layerId)))
+                                             na.omit(client$buffer$layerId)),
+                                           stroke = input$stroke, 
+                                           color = input$strokeColor, 
+                                           weight = input$strokeWeight, 
+                                           opacity = input$strokeOpacity, 
+                                           fill = input$fill, 
+                                           fillColor = input$fillColor, 
+                                           fillOpacity = input$fillOpacity)
       client$buffer<-NULL
       client$current<-NULL
       saveRDS(server$items,"items.Rds")
@@ -332,13 +357,13 @@ shinyServer(function(input, output, session) {
                                              lat=points[,2],
                                              radius=10,
                                              layerId = points[,3],
-                                             stroke = TRUE,
-                                             color = "black", 
-                                             weight = 5, 
-                                             opacity = 0.5, 
-                                             fill = TRUE, 
-                                             fillColor = "black",
-                                             fillOpacity = 0.2)
+                                             stroke = input$stroke, 
+                                             color = input$strokeColor, 
+                                             weight = input$strokeWeight, 
+                                             opacity = input$strokeOpacity, 
+                                             fill = input$fill, 
+                                             fillColor = input$fillColor, 
+                                             fillOpacity = input$fillOpacity)
   })
   observeEvent(input$hidePolygons, {
     polygons <- ldply(server$polygons, data.frame)
@@ -351,7 +376,14 @@ shinyServer(function(input, output, session) {
     leafletProxy("map") %>% addPolygons(lng=polygons$lng,
                                         lat=polygons$lat,
                                         layerId=unique(
-                                          na.omit(polygons$layerId)))
+                                          na.omit(polygons$layerId)),
+                                        stroke = input$stroke, 
+                                        color = input$strokeColor, 
+                                        weight = input$strokeWeight, 
+                                        opacity = input$strokeOpacity, 
+                                        fill = input$fill, 
+                                        fillColor = input$fillColor, 
+                                        fillOpacity = input$fillOpacity)
   })
   observeEvent(input$hideLines, {
     lines <- ldply(server$lines, data.frame)
@@ -363,8 +395,16 @@ shinyServer(function(input, output, session) {
     lines <- ldply(server$lines, data.frame)
     leafletProxy("map") %>% addPolylines(lng=lines$lng,
                                          lat=lines$lat,
-                                         layerId=unique(na.omit(lines$layerId)))
+                                         layerId=unique(na.omit(lines$layerId)),
+                                         stroke = input$stroke, 
+                                         color = input$strokeColor, 
+                                         weight = input$strokeWeight, 
+                                         opacity = input$strokeOpacity, 
+                                         fill = input$fill, 
+                                         fillColor = input$fillColor, 
+                                         fillOpacity = input$fillOpacity)
   })
+
 ######Hide/Show######
 
 # ######Tags#####
@@ -430,19 +470,101 @@ shinyServer(function(input, output, session) {
                options = tileOptions()) %>%
       setView(2,46,6)   
   })
-  output$items <- renderDataTable({
-    items <- ldply(server$items, data.frame)
-    items[,c(3,4)]
+  output$elements <- DT::renderDataTable({
+    elements <- ldply(server$items, data.frame)
+    elements[,c(3,4)]
   }, options = list(pageLength = 10,
                     lengthChange = FALSE,
                     dom = '<"top">rt<"bottom"fp><"clear">'))
   
-  output$picked <- renderDataTable({
+  output$picked <- DT::renderDataTable({
     picked <- ldply(server$items, data.frame)
-    picked[input$items_rows_selected,c(3,4)]
+    picked[input$elements_rows_selected,c(2,3)]
   }, options = list(pageLength = 10,
                     lengthChange = FALSE,
                     dom = '<"top"i>rt<"bottom"p><"clear">'))
+  
+  observeEvent(input$elements_rows_selected, {
+    items <- ldply(server$items, data.frame)
+    picked <- items[input$elements_rows_selected,c(2,3)]
+    saveRDS(picked,"picked.RDS")
+    
+    pickedPoints <- picked[picked$type=="point","layerId"]
+    saveRDS(pickedPoints,"pickedPoints.RDS")
+    pointsData <- ldply(server$points, data.frame)
+    saveRDS(pointsData,"pointsData.RDS")
+    pickedPointsData <- pointsData[pointsData$layerId %in% pickedPoints,]
+    saveRDS(pickedPointsData,"pickedPointsData.RDS")
+    
+    pickedLines <- picked[picked$type=="line","layerId"]
+    saveRDS(pickedLines,"pickedLines.RDS")
+    linesData <- ldply(server$lines, data.frame)
+    saveRDS(linesData,"linesData.RDS")
+    pickedLinesData <- linesData[linesData$layerId %in% pickedLines,]
+    saveRDS(pickedLinesData,"pickedLinesData.RDS")
+    
+    pickedPolygons <- picked[picked$type=="polygon","layerId"]
+    saveRDS(pickedPolygons,"pickedPolygons.RDS")
+    polygonsData <- ldply(server$polygons, data.frame)
+    saveRDS(polygonsData,"polygonsData.RDS")
+    pickedPolygonsData <- polygonsData[polygonsData$layerId %in% pickedPolygons,]
+    saveRDS(pickedPolygonsData,"pickedPolygonsData.RDS")
+    
+    
+
+    leafletProxy("map") %>% clearMarkers() %>% clearShapes()
+    if (nrow(pickedPointsData)==0) {
+      return
+    } else {
+      leafletProxy("map") %>% addCircleMarkers(lng = pickedPointsData$lng,
+                                               lat = pickedPointsData$lat,
+                                               layerId = pickedPointsData$layerId,
+                                               stroke = input$stroke, 
+                                               color = input$strokeColor, 
+                                               weight = input$strokeWeight, 
+                                               opacity = input$strokeOpacity, 
+                                               fill = input$fill, 
+                                               fillColor = input$fillColor, 
+                                               fillOpacity = input$fillOpacity) 
+    }
+
+    
+    if (nrow(pickedLinesData)==0) {
+      return
+    } else {
+      leafletProxy("map") %>% addPolylines(lng=pickedLinesData$lng,
+                                           lat=pickedLinesData$lat,
+                                           layerId=unique(na.omit(pickedLinesData$layerId)),
+                                           stroke = input$stroke, 
+                                           color = input$strokeColor, 
+                                           weight = input$strokeWeight, 
+                                           opacity = input$strokeOpacity, 
+                                           fill = input$fill, 
+                                           fillColor = input$fillColor, 
+                                           fillOpacity = input$fillOpacity)
+    }
+    if (nrow(pickedPolygonsData)==0) {
+      return
+    } else {
+      leafletProxy("map") %>% addPolygons(lng=pickedPolygonsData$lng,
+                                          lat=pickedPolygonsData$lat,
+                                          layerId=unique(na.omit(pickedPolygonsData$layerId)),
+                                          stroke = input$stroke, 
+                                          color = input$strokeColor, 
+                                          weight = input$strokeWeight, 
+                                          opacity = input$strokeOpacity, 
+                                          fill = input$fill, 
+                                          fillColor = input$fillColor, 
+                                          fillOpacity = input$fillOpacity)
+    }
+    
+    
+    saveRDS(client$test,"test.RDS")
+  })
+    
+
+
+
 })
 ####Output####
 
