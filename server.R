@@ -4,6 +4,9 @@ library(leaflet)
 library(plyr)
 library(dplyr)
 library(DT)
+library(shinyAce)
+
+
 #######Functions and reactiveValues######
 server <- reactiveValues(items = list(),
                          points = list(),
@@ -21,7 +24,7 @@ shinyServer(function(input, output, session) {
                          
 ####Add marker######  
   observeEvent(input$map_click,{
-    if (input$tools != 1) {
+    if (input$elementType != 1) {
       return()
     } else {
       event <- input$map_click
@@ -30,12 +33,12 @@ shinyServer(function(input, output, session) {
                                     lat=event$lat,
                                     layerId=id,
                                     pointId=id,
-                                    user=as.character(input$item),
+                                    user=as.character(input$elementName),
                                     stringsAsFactors = FALSE)
       server$points[[length(server$points)+1]] <- client$selected
       server$items[[id]] <- data.frame(layerId=as.character(id),
                                                            type="point",
-                                                           author=input$item)
+                                                           author=input$elementName)
       leafletProxy("map") %>% addCircleMarkers(lng=event$lng,
                                                lat=event$lat,
                                                layerId = id,
@@ -51,7 +54,7 @@ shinyServer(function(input, output, session) {
 ####Add marker######  
 ####Add polygon######
   observeEvent(input$map_click, { # if no marker is clicked a new one is created
-    if (input$tools != 3) {
+    if (input$elementType != 3) {
       return()      
     } else { 
       if (is.null(client$buffer)) { # we check if a polygon is already underway
@@ -67,7 +70,7 @@ shinyServer(function(input, output, session) {
                                     lat = event$lat,
                                     layerId = id,
                                     pointId = id,
-                                    user = as.character(input$item),
+                                    user = as.character(input$elementName),
                                     stringsAsFactors = FALSE)
       client$buffer <- rbind(client$buffer,client$selected) # added to poly data
       ## and stored in server$points, where we will later retrieve its data
@@ -75,7 +78,7 @@ shinyServer(function(input, output, session) {
       ## and we store its ref in server$items
       server$items[[id]] <- data.frame(layerId = as.character(id),
                                        type = "point",
-                                       author = input$item)
+                                       author = input$elementName)
       ## we display this new marker as well as a temporary polygon
       leafletProxy("map") %>% addCircleMarkers(lng = as.double(event$lng),
                                                lat = as.double(event$lat),
@@ -89,7 +92,7 @@ shinyServer(function(input, output, session) {
   })
   
   observeEvent(input$map_marker_click, { # if a marker is clicked add it to poly
-    if (input$tools != 3) {
+    if (input$elementType != 3) {
       return()
     } else {
       if (is.null(client$buffer)) { # we check if a new poly is already underway
@@ -103,7 +106,7 @@ shinyServer(function(input, output, session) {
                                   lat = event$lat,
                                   layerId = event$id,
                                   pointId = event$id,
-                                  user = as.character(input$item),
+                                  user = as.character(input$elementName),
                                   stringsAsFactors = FALSE)
     client$buffer <- rbind(client$buffer,client$selected) # added to poly's data
     ## we update the temporary polygon's display
@@ -127,7 +130,7 @@ shinyServer(function(input, output, session) {
       ## and we add these data ref to our items list
       server$items[[client$current]] <- data.frame(layerId = client$current,
                                                    type = "polygon",
-                                                   author = input$item)
+                                                   author = input$elementName)
       ## we display our finished polygon on the map                                                 
       leafletProxy("map") %>% addPolygons(lng = client$buffer$lng,
                                           lat = client$buffer$lat,
@@ -153,7 +156,7 @@ shinyServer(function(input, output, session) {
   #Creates a new point on the map and adds it to the list of points (buffer) 
   #that will later define the line
   observeEvent(input$map_click, {
-    if (input$tools != 2) {
+    if (input$elementType != 2) {
       return()      
     } else { 
       if (is.null(client$buffer)) { # we check if a line is already underway
@@ -169,7 +172,7 @@ shinyServer(function(input, output, session) {
                                     lat = event$lat,
                                     layerId = id,
                                     pointId = id,
-                                    user = as.character(input$item),
+                                    user = as.character(input$elementName),
                                     stringsAsFactors = FALSE)
       client$buffer <- rbind(client$buffer,client$selected) # add to line's data
       ## and stored in server$points, where we will later retrieve its data
@@ -177,7 +180,7 @@ shinyServer(function(input, output, session) {
       ## and we store its ref in server$items
       server$items[[id]] <- data.frame(layerId = as.character(id),
                                        type = "point",
-                                       author = input$item)
+                                       author = input$elementName)
       ## we display this new marker
       leafletProxy("map") %>% addCircleMarkers(lng = as.double(event$lng),
                                                lat = as.double(event$lat),
@@ -194,7 +197,7 @@ shinyServer(function(input, output, session) {
       ## and we add these data ref to our items list
       server$items[[client$current]] <- data.frame(layerId = client$current,
                                                    type = "line",
-                                                   author = input$item)
+                                                   author = input$elementName)
       leafletProxy("map") %>% addPolylines(lng=client$buffer$lng,
                                            lat=client$buffer$lat,
                                            layerId = unique(
@@ -217,7 +220,7 @@ shinyServer(function(input, output, session) {
   #Adds an existing point to the list of points (buffer) that will later define 
   #the line
   observeEvent(input$map_marker_click, {
-    if (input$tools != 2) {
+    if (input$elementType != 2) {
       return()
     } else {
       if (is.null(client$buffer)) { # we check if a new poly is already underway
@@ -231,7 +234,7 @@ shinyServer(function(input, output, session) {
                                   lat = event$lat,
                                   layerId = event$id,
                                   pointId = event$id,
-                                  user = as.character(input$item),
+                                  user = as.character(input$elementName),
                                   stringsAsFactors = FALSE)
     client$buffer <- rbind(client$buffer,client$selected) # added to poly's data
     #Closes the shape if its first node is clicked
@@ -245,7 +248,7 @@ shinyServer(function(input, output, session) {
       ## and we add these data ref to our items list
       server$items[[client$current]] <- data.frame(layerId = client$current,
                                                    type = "line",
-                                                   author = input$item)
+                                                   author = input$elementName)
       leafletProxy("map") %>% addPolylines(lng=client$buffer$lng,
                                            lat=client$buffer$lat,
                                            layerId = unique(
@@ -268,7 +271,7 @@ shinyServer(function(input, output, session) {
   
 ####Select marker####
   observeEvent(input$map_marker_click, {
-    if (input$tools != 0) {
+    if (input$elementType != 0) {
       return()
     } else {
       event<-input$map_marker_click
@@ -276,7 +279,7 @@ shinyServer(function(input, output, session) {
                                   lat=as.double(event$lat),
                                   layerId=event$id,
                                   pointId=event$id,
-                                  user=as.character(input$item),
+                                  user=as.character(input$elementName),
                                   stringsAsFactors = FALSE)
       
       leafletProxy("map") %>% removeShape("selected") %>% 
@@ -296,7 +299,7 @@ shinyServer(function(input, output, session) {
 ####Select marker####
 ####Select shape######
   observeEvent(input$map_shape_click, {
-    if (input$tools != 0) {
+    if (input$elementType != 0) {
       return()
     } else {
       event<-input$map_shape_click
@@ -304,7 +307,7 @@ shinyServer(function(input, output, session) {
       lines <- ldply(server$lines, data.frame)
       shapes<-rbind(polygons,lines)
       shapes<-shapes[shapes$layerId==event$id,]
-      if (input$item==1) {
+      if (input$elementName==1) {
         server$beacon1<-shapes
       } else {
         server$beacon2<-shapes
@@ -338,7 +341,7 @@ shinyServer(function(input, output, session) {
                                   lat=as.double(event$lat),
                                   layerId=event$id,
                                   pointId=event$id, 
-                                  user=as.character(input$item),
+                                  user=as.character(input$elementName),
                                   stringsAsFactors = FALSE)
     }
   })
@@ -473,7 +476,7 @@ shinyServer(function(input, output, session) {
   output$elements <- DT::renderDataTable({
     elements <- ldply(server$items, data.frame)
     elements[,c(3,4)]
-  }, options = list(pageLength = 10,
+  }, options = list(pageLength = 5,
                     lengthChange = FALSE,
                     dom = '<"top">rt<"bottom"fp><"clear">'))
   
