@@ -12,7 +12,25 @@ server <- reactiveValues(items = list(),
                          points = list(),
                          lines = list(),
                          polygons = list(),
-                         polylines = list())
+                         elements = list(),
+                         sets = list(),
+                         themes = list(),
+                         polylines = list(),
+                         chat = NULL,
+                         users = NULL)
+# Restore the chat log from the last session.
+if (file.exists("chat.Rds")){
+  server$chat <- readRDS("chat.Rds")
+}
+
+#' Get the prefix for the line to be added to the chat window. Usually a newline
+#' character unless it's the first line.
+linePrefix <- function(){
+  if (is.null(isolate(server$chat))){
+    return("")
+  }
+  return("<br />")
+}
                        
 #######Functions and reactiveValues######
 shinyServer(function(input, output, session) {
@@ -20,7 +38,110 @@ shinyServer(function(input, output, session) {
   client <- reactiveValues(selected = NULL,
                            current = NULL,
                            buffer = NULL,
-                           test = 0)
+                           test = 0,
+                           chatlog = NULL)
+#####CHAT#######
+  if (file.exists("chatlog.Rds")){
+    client$chatlog <- readRDS("chatlog.Rds")
+  }
+  
+  sessionVars <- reactiveValues(username = "")
+  # Track whether or not this session has been initialized. We'll use this to
+  # assign a username to unininitialized sessions.
+  init <- FALSE
+  # When a session is ended, remove the user and note that they left the room.
+  session$onSessionEnded(function() {
+    isolate({
+      server$users <- server$users[server$users != sessionVars$username]
+      server$chat <- c(server$chat, paste0(linePrefix(),
+                                       tags$span(class="user-exit",
+                                                 sessionVars$username,
+                                                 "left the room.")))
+    })
+  })
+  # Observer to handle changes to the username
+  observe({
+    # We want a reactive dependency on this variable, so we'll just list it here.
+    input$user
+    if (!init){
+      # Seed initial username
+      sessionVars$username <- paste0("User", round(runif(1, 10000, 99999)))
+      isolate({
+        server$chat <<- c(server$chat, paste0(linePrefix(),
+                                          tags$span(class="user-enter",
+                                                    sessionVars$username,
+                                                    "entered the room.")))
+      })
+      init <<- TRUE
+    } else{
+      # A previous username was already given
+      isolate({
+        if (input$user == sessionVars$username || input$user == ""){
+          # No change. Just return.
+          return()
+        }
+        # Updating username
+        # First, remove the old one
+        server$users <- server$users[server$users != sessionVars$username]
+        # Note the change in the chat log
+        server$chat <<- c(server$chat, paste0(linePrefix(),
+                                          tags$span(class="user-change",
+                                                    paste0("\"", sessionVars$username, "\""),
+                                                    " -> ",
+                                                    paste0("\"", input$user, "\""))))
+        # Now update with the new one
+        sessionVars$username <- input$user
+      })
+    }
+    # Add this user to the global list of users
+    isolate(server$users <- c(server$users, sessionVars$username))
+  })
+  # Keep the username updated with whatever sanitized/assigned username we have
+  observe({
+    updateTextInput(session, "user",
+                    value=sessionVars$username)
+  })
+  # Keep the list of connected users updated
+  output$userList <- renderUI({
+    tagList(tags$ul(lapply(server$users, function(user){
+      return(tags$li(user))
+    })))
+  })
+  
+  observe({
+    if(input$send < 1){
+      # The code must be initializing, b/c the button hasn't been clicked yet.
+      return()
+    }
+    isolate({
+      # Add the current entry to the chat log.
+      server$chat <<- c(server$chat,
+                      paste0(linePrefix(),
+                             tags$span(class="username",
+                                       tags$abbr(title=Sys.time(), sessionVars$username)
+                             ),
+                             ": ",
+                             tagList(input$entry)))
+      client$chatlog<<-rbind(client$chatlog,data.frame(tmp=Sys.time(),txt=input$entry))
+      saveRDS(client$chatlog,"chatlog.Rds") 
+    })
+    # Clear out the text entry field.
+    updateTextInput(session, "entry", value="")
+  })
+  # Dynamically create the UI for the chat window.
+  output$chat <- renderUI({
+    if (length(server$chat) > 500){
+      # Too long, use only the most recent 500 lines
+      server$chat <- server$chat[(length(server$chat)-500):(length(server$chat))]
+    }
+    # Save the chat object so we can restore it later if needed.
+    saveRDS(server$chat, "chat.Rds")
+    # Pass the chat log through as HTML
+    HTML(server$chat)
+  })
+  
+  
+#####CHAT#######
                          
 ####Add marker######  
   observeEvent(input$map_click,{
@@ -28,7 +149,7 @@ shinyServer(function(input, output, session) {
       return()
     } else {
       event <- input$map_click
-      id <- as.character(as.integer(length(server$items))+1)
+      id <- as.character(as.integer(length(server$elements))+1)
       client$selected <- data.frame(lng=event$lng,
                                     lat=event$lat,
                                     layerId=id,
@@ -36,7 +157,7 @@ shinyServer(function(input, output, session) {
                                     user=as.character(input$elementName),
                                     stringsAsFactors = FALSE)
       server$points[[length(server$points)+1]] <- client$selected
-      server$items[[id]] <- data.frame(layerId=as.character(id),
+      server$elements[[id]] <- data.frame(layerId=as.character(id),
                                                            type="point",
                                                            author=input$elementName)
       leafletProxy("map") %>% addCircleMarkers(lng=event$lng,
@@ -58,12 +179,12 @@ shinyServer(function(input, output, session) {
       return()      
     } else { 
       if (is.null(client$buffer)) { # we check if a polygon is already underway
-        ## if not, store its id in client$current and save spot in server$items
-        client$current <- as.character(as.integer(length(server$items)+1))
-        server$items[[client$current]] <- client$current
+        ## if not, store its id in client$current and save spot in server$elements
+        client$current <- as.character(as.integer(length(server$elements)+1))
+        server$elements[[client$current]] <- client$current
       } # if yes we'll add the new points to the polygon's definition
       event <- input$map_click # we store the event's info
-      id <- as.character(as.integer(length(server$items))+1) # new marker's id
+      id <- as.character(as.integer(length(server$elements))+1) # new marker's id
       saveRDS(id,"id.Rds")
       saveRDS(client$current,"current.Rds")
       client$selected <- data.frame(lng = event$lng, # the new marker's data
@@ -75,8 +196,8 @@ shinyServer(function(input, output, session) {
       client$buffer <- rbind(client$buffer,client$selected) # added to poly data
       ## and stored in server$points, where we will later retrieve its data
       server$points[[length(server$points)+1]] <- client$selected
-      ## and we store its ref in server$items
-      server$items[[id]] <- data.frame(layerId = as.character(id),
+      ## and we store its ref in server$elements
+      server$elements[[id]] <- data.frame(layerId = as.character(id),
                                        type = "point",
                                        author = input$elementName)
       ## we display this new marker as well as a temporary polygon
@@ -96,9 +217,9 @@ shinyServer(function(input, output, session) {
       return()
     } else {
       if (is.null(client$buffer)) { # we check if a new poly is already underway
-        ## if not, store its id in client$current and save spot in server$items
-        client$current <- as.character(as.integer(length(server$items)+1))
-        server$items[[client$current]] <- as.character(client$current)
+        ## if not, store its id in client$current and save spot in server$elements
+        client$current <- as.character(as.integer(length(server$elements)+1))
+        server$elements[[client$current]] <- as.character(client$current)
       } # if yes we'll add the new points to the polygon's definition
     }
     event <- input$map_marker_click # we store the event's info
@@ -128,7 +249,7 @@ shinyServer(function(input, output, session) {
       
       server$polygons[[length(server$polygons)+1]] <- client$buffer
       ## and we add these data ref to our items list
-      server$items[[client$current]] <- data.frame(layerId = client$current,
+      server$elements[[client$current]] <- data.frame(layerId = client$current,
                                                    type = "polygon",
                                                    author = input$elementName)
       ## we display our finished polygon on the map                                                 
@@ -146,7 +267,7 @@ shinyServer(function(input, output, session) {
       ## we clear client$buffer & client$current so we can start new shapes 
       client$buffer<-NULL
       client$current<-NULL
-      saveRDS(server$items,"items.Rds")
+      saveRDS(server$elements,"items.Rds")
     } else {
       return()
     }
@@ -160,12 +281,12 @@ shinyServer(function(input, output, session) {
       return()      
     } else { 
       if (is.null(client$buffer)) { # we check if a line is already underway
-        ## if not, store its id in client$current and save spot in server$items
-        client$current <- as.character(as.integer(length(server$items)+1))
-        server$items[[client$current]] <- client$current
+        ## if not, store its id in client$current and save spot in server$elements
+        client$current <- as.character(as.integer(length(server$elements)+1))
+        server$elements[[client$current]] <- client$current
       } # if yes we'll add the new points to the polygon's definition
       event <- input$map_click # we store the event's info
-      id <- as.character(as.integer(length(server$items))+1) # new marker's id
+      id <- as.character(as.integer(length(server$elements))+1) # new marker's id
       saveRDS(id,"id.Rds")
       saveRDS(client$current,"current.Rds")
       client$selected <- data.frame(lng = event$lng, # the new marker's data
@@ -177,8 +298,8 @@ shinyServer(function(input, output, session) {
       client$buffer <- rbind(client$buffer,client$selected) # add to line's data
       ## and stored in server$points, where we will later retrieve its data
       server$points[[length(server$points)+1]] <- client$selected
-      ## and we store its ref in server$items
-      server$items[[id]] <- data.frame(layerId = as.character(id),
+      ## and we store its ref in server$elements
+      server$elements[[id]] <- data.frame(layerId = as.character(id),
                                        type = "point",
                                        author = input$elementName)
       ## we display this new marker
@@ -195,7 +316,7 @@ shinyServer(function(input, output, session) {
       ## we store this in server$polgons where we will later retrieve its data
       server$lines[[length(server$lines)+1]] <- client$buffer
       ## and we add these data ref to our items list
-      server$items[[client$current]] <- data.frame(layerId = client$current,
+      server$elements[[client$current]] <- data.frame(layerId = client$current,
                                                    type = "line",
                                                    author = input$elementName)
       leafletProxy("map") %>% addPolylines(lng=client$buffer$lng,
@@ -211,7 +332,7 @@ shinyServer(function(input, output, session) {
                                            fillOpacity = input$fillOpacity)
       client$buffer<-NULL
       client$current<-NULL
-      saveRDS(server$items,"items.Rds")
+      saveRDS(server$elements,"items.Rds")
     } else {
       return()
     }
@@ -224,9 +345,9 @@ shinyServer(function(input, output, session) {
       return()
     } else {
       if (is.null(client$buffer)) { # we check if a new poly is already underway
-        ## if not, store its id in client$current and save spot in server$items
-        client$current <- as.character(as.integer(length(server$items)+1))
-        server$items[[client$current]] <- as.character(client$current)
+        ## if not, store its id in client$current and save spot in server$elements
+        client$current <- as.character(as.integer(length(server$elements)+1))
+        server$elements[[client$current]] <- as.character(client$current)
       } # if yes we'll add the new points to the polygon's definition
     }
     event <- input$map_marker_click # we store the event's info
@@ -246,7 +367,7 @@ shinyServer(function(input, output, session) {
       ## we store this in server$polgons where we will later retrieve its data
       server$lines[[length(server$lines)+1]] <- client$buffer
       ## and we add these data ref to our items list
-      server$items[[client$current]] <- data.frame(layerId = client$current,
+      server$elements[[client$current]] <- data.frame(layerId = client$current,
                                                    type = "line",
                                                    author = input$elementName)
       leafletProxy("map") %>% addPolylines(lng=client$buffer$lng,
@@ -262,7 +383,7 @@ shinyServer(function(input, output, session) {
                                            fillOpacity = input$fillOpacity)
       client$buffer<-NULL
       client$current<-NULL
-      saveRDS(server$items,"items.Rds")
+      saveRDS(server$elements,"items.Rds")
     } else {
       return()
     }
@@ -447,6 +568,8 @@ shinyServer(function(input, output, session) {
     saveRDS(data,"data.Rds")
     data<-HTML(data[,2])
   })
+  
+  
   output$labels <- renderTable({
     data<-server$taglist[,2]     
     
@@ -474,21 +597,32 @@ shinyServer(function(input, output, session) {
       setView(2,46,6)   
   })
   output$elements <- DT::renderDataTable({
-    elements <- ldply(server$items, data.frame)
+    elements <- ldply(server$elements, data.frame)
     elements[,c(3,4)]
   }, options = list(pageLength = 5,
                     lengthChange = FALSE,
                     dom = '<"top">rt<"bottom"fp><"clear">'))
   
   output$picked <- DT::renderDataTable({
-    picked <- ldply(server$items, data.frame)
+    picked <- ldply(server$elements, data.frame)
     picked[input$elements_rows_selected,c(2,3)]
   }, options = list(pageLength = 10,
                     lengthChange = FALSE,
                     dom = '<"top"i>rt<"bottom"p><"clear">'))
   
+  observeEvent(input$setTags, {
+    updateAceEditor(session, "mapTags", value=input$setTags, mode="text", theme="ambient", readOnly = TRUE,
+                    fontSize = 12, wordWrap = TRUE)
+    
+  })
+  observeEvent(input$setDescription, {
+    updateAceEditor(session, "mapDescription", value=input$setDescription, mode="text", theme="ambient", readOnly = TRUE,
+                    fontSize = 12, wordWrap = TRUE)
+    
+  })
+
   observeEvent(input$elements_rows_selected, {
-    items <- ldply(server$items, data.frame)
+    items <- ldply(server$elements, data.frame)
     picked <- items[input$elements_rows_selected,c(2,3)]
     saveRDS(picked,"picked.RDS")
     
@@ -513,8 +647,6 @@ shinyServer(function(input, output, session) {
     pickedPolygonsData <- polygonsData[polygonsData$layerId %in% pickedPolygons,]
     saveRDS(pickedPolygonsData,"pickedPolygonsData.RDS")
     
-    
-
     leafletProxy("map") %>% clearMarkers() %>% clearShapes()
     if (nrow(pickedPointsData)==0) {
       return
@@ -560,9 +692,81 @@ shinyServer(function(input, output, session) {
                                           fillColor = input$fillColor, 
                                           fillOpacity = input$fillOpacity)
     }
+  })
+  
+  observeEvent(input$themeAdd, {
+    items <- ldply(server$elements, data.frame)
+    picked <- items[input$elements_rows_selected,c(2,3)]
+    saveRDS(picked,"picked.RDS")
+    
+    pickedPoints <- picked[picked$type=="point","layerId"]
+    saveRDS(pickedPoints,"pickedPoints.RDS")
+    pointsData <- ldply(server$points, data.frame)
+    saveRDS(pointsData,"pointsData.RDS")
+    pickedPointsData <- pointsData[pointsData$layerId %in% pickedPoints,]
+    saveRDS(pickedPointsData,"pickedPointsData.RDS")
+    
+    pickedLines <- picked[picked$type=="line","layerId"]
+    saveRDS(pickedLines,"pickedLines.RDS")
+    linesData <- ldply(server$lines, data.frame)
+    saveRDS(linesData,"linesData.RDS")
+    pickedLinesData <- linesData[linesData$layerId %in% pickedLines,]
+    saveRDS(pickedLinesData,"pickedLinesData.RDS")
+    
+    pickedPolygons <- picked[picked$type=="polygon","layerId"]
+    saveRDS(pickedPolygons,"pickedPolygons.RDS")
+    polygonsData <- ldply(server$polygons, data.frame)
+    saveRDS(polygonsData,"polygonsData.RDS")
+    pickedPolygonsData <- polygonsData[polygonsData$layerId %in% pickedPolygons,]
+    saveRDS(pickedPolygonsData,"pickedPolygonsData.RDS")
     
     
-    saveRDS(client$test,"test.RDS")
+    
+    leafletProxy("map") %>% clearMarkers() %>% clearShapes()
+    if (nrow(pickedPointsData)==0) {
+      return
+    } else {
+      leafletProxy("map") %>% addCircleMarkers(lng = pickedPointsData$lng,
+                                               lat = pickedPointsData$lat,
+                                               layerId = pickedPointsData$layerId,
+                                               stroke = input$stroke, 
+                                               color = input$strokeColor, 
+                                               weight = input$strokeWeight, 
+                                               opacity = input$strokeOpacity, 
+                                               fill = input$fill, 
+                                               fillColor = input$fillColor, 
+                                               fillOpacity = input$fillOpacity) 
+    }
+    
+    
+    if (nrow(pickedLinesData)==0) {
+      return
+    } else {
+      leafletProxy("map") %>% addPolylines(lng=pickedLinesData$lng,
+                                           lat=pickedLinesData$lat,
+                                           layerId=unique(na.omit(pickedLinesData$layerId)),
+                                           stroke = input$stroke, 
+                                           color = input$strokeColor, 
+                                           weight = input$strokeWeight, 
+                                           opacity = input$strokeOpacity, 
+                                           fill = input$fill, 
+                                           fillColor = input$fillColor, 
+                                           fillOpacity = input$fillOpacity)
+    }
+    if (nrow(pickedPolygonsData)==0) {
+      return
+    } else {
+      leafletProxy("map") %>% addPolygons(lng=pickedPolygonsData$lng,
+                                          lat=pickedPolygonsData$lat,
+                                          layerId=unique(na.omit(pickedPolygonsData$layerId)),
+                                          stroke = input$stroke, 
+                                          color = input$strokeColor, 
+                                          weight = input$strokeWeight, 
+                                          opacity = input$strokeOpacity, 
+                                          fill = input$fill, 
+                                          fillColor = input$fillColor, 
+                                          fillOpacity = input$fillOpacity)
+    }
   })
     
 
