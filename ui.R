@@ -188,7 +188,10 @@ absolutePanel(id = "controls", class = "panel panel-default", fixed = TRUE,
                 ),
                 textInput("user", "Your User ID:", value=""),
                 tags$hr(),
-                helpText(HTML("<p>Built using R & <a href = \"http://rstudio.com/shiny/\">Shiny</a>.<p>Source code available <a href =\"https://github.com/trestletech/ShinyChat\">on GitHub</a>."))
+                helpText(HTML("<p>Built using R & <a href = \"http://rstudio.com/shiny/\">Shiny</a>.
+                              <p>Source code available <a href =\"https://github.com/basttran/divRs\">on GitHub</a>.
+                              <p>Chat based on <a href =\"https://github.com/trestletech/ShinyChat\">ShinyChat</a>.
+                              <p>Map based on <a href =\"https://github.com/rstudio/shiny-examples/tree/master/063-superzip-example\">SuperZIP example</a>."))
               )
               
 )
