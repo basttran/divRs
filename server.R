@@ -6,7 +6,6 @@ library(dplyr)
 library(DT)
 library(shinyAce)
 
-
 #######Functions and reactiveValues######
 server <- reactiveValues(items = list(),
                          points = list(),
@@ -142,6 +141,12 @@ shinyServer(function(input, output, session) {
   
   
 #####CHAT#######
+  observeEvent(input$nextInputKey, {
+    js$focusNextInputField()
+  })
+  
+  
+  
                          
 ####Add marker######  
   observeEvent(input$map_click,{
@@ -589,12 +594,12 @@ shinyServer(function(input, output, session) {
     data
   })
   output$map <- renderLeaflet({
-    leaflet() %>% 
-      addTiles(urlTemplate="http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", 
-               attribution = NULL, 
-               layerId = NULL, 
+    leaflet() %>%
+      addTiles(urlTemplate="http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+               attribution = NULL,
+               layerId = NULL,
                options = tileOptions()) %>%
-      setView(2,46,6)   
+      setView(2,46,6)
   })
   output$elements <- DT::renderDataTable({
     elements <- ldply(server$elements, data.frame)

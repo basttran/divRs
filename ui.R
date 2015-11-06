@@ -3,10 +3,24 @@ library(leaflet)
 library(shinyjs)
 library(shinyAce)
 
+jsCode <- 'shinyjs.focusNextInputField = function() {
+  var el = document.getElementById("elementDescription");
+  el.textarea.focus();
+//    alert("lol jk");
+}'
 
-shinyUI(fluidPage(mainPanel(h3("divRs"),
+
+
+
+
+
+shinyUI(fluidPage(useShinyjs(),
+                  extendShinyjs(text = jsCode),
+                  mainPanel(h3("divRs"),
                             tags$div(id="cite",
-                                     'Collaborative mapping for ', tags$em('AMORAD 2015'), ' by Bastien Tran (REEDS-OVSQ, 2015).'
+                                     'Collaborative mapping for ', 
+                                     tags$em('AMORAD 2015'), 
+                                     ' by Bastien Tran (REEDS-OVSQ, 2015).'
                             ),
                             div(class="outer",
                                 tags$head(
@@ -20,25 +34,6 @@ shinyUI(fluidPage(mainPanel(h3("divRs"),
                                 leafletOutput("map", width="100%", height="100%"))
 ),
 
-absolutePanel(id = "controls", class = "panel panel-default", fixed = TRUE,
-              draggable = TRUE, top = 60, left = "auto", right = 20, bottom = "auto",
-              width = 330, height = "auto",
-              h2("Chat"),
-              uiOutput("chat"),
-              # Create the bottom bar to allow users to chat.
-              fluidRow(
-                div(class="span10",
-                    textInput("entry", "")
-                ),
-                div(class="span2 center",
-                    actionButton("send", "Send")
-                ),
-                textInput("user", "Your User ID:", value=""),
-                tags$hr(),
-                helpText(HTML("<p>Built using R & <a href = \"http://rstudio.com/shiny/\">Shiny</a>.<p>Source code available <a href =\"https://github.com/trestletech/ShinyChat\">on GitHub</a>."))
-              )
-              
-),
 absolutePanel(id = "datatable", class = "panel panel-default", fixed = TRUE,
               draggable = TRUE, top = 50, left = 30, right = "auto", 
               bottom = 30, width = 450, height = 750,
@@ -55,13 +50,15 @@ absolutePanel(id = "datatable", class = "panel panel-default", fixed = TRUE,
                                        actionLink("elementNew", label = "New"))),
                        h5(tags$strong("Tags")),
                        aceEditor("elementTags", value="", mode="text", theme="ambient", readOnly = FALSE,
-                                 height = "60px", fontSize = 12, wordWrap = TRUE),
+                                 height = "60px", fontSize = 12
+                                 , hotkeys = list(nextInputKey = list(win="Tab",mac="Tab"))
+                                 ),
                        h5(tags$strong("Description")),
                        aceEditor("elementDescription", value="", mode="text", theme="ambient", readOnly = FALSE,
-                                 height = "60px", fontSize = 12, wordWrap = TRUE),
+                                 height = "60px", fontSize = 12),
                        # h5(tags$strong("Resources")),
                        # aceEditor("elementResources", value="", mode="text", theme="ambient", readOnly = FALSE,
-                       #           height = "60px", fontSize = 12, wordWrap = TRUE),
+                       #           height = "60px", fontSize = 12),
                        conditionalPanel(condition = "input.elementName != '' && input.elementTags != '' && input.elementDescription != ''",
                                         selectInput("elementType","Element's type",c("Select" = 0,
                                                                                      "Draw points" = 1,
@@ -82,10 +79,10 @@ absolutePanel(id = "datatable", class = "panel panel-default", fixed = TRUE,
                                        actionLink("setNew", label = "New"))),
                        h5(tags$strong("Tags")),
                        aceEditor("setTags", value="", mode="text", theme="ambient", readOnly = FALSE,
-                                 height = "60px", fontSize = 12, wordWrap = TRUE),
+                                 height = "60px", fontSize = 12),
                        h5(tags$strong("Description")),
                        aceEditor("setDescription", value="", mode="text", theme="ambient", readOnly = FALSE,
-                                 height = "60px", fontSize = 12, wordWrap = TRUE),
+                                 height = "60px", fontSize = 12),
                        conditionalPanel(condition = "input.setName != '' && input.setTags != '' && input.setDescription != ''",
                                         DT::dataTableOutput("elements")),
                        br(),
@@ -103,10 +100,10 @@ absolutePanel(id = "datatable", class = "panel panel-default", fixed = TRUE,
                                        actionLink("themeNew", label = "New"))),
                        h5(tags$strong("Tags")),
                        aceEditor("themeTags", value="", mode="text", theme="ambient", readOnly = FALSE,
-                                 height = "60px", fontSize = 12, wordWrap = TRUE),
+                                 height = "60px", fontSize = 12),
                        h5(tags$strong("Description")),
                        aceEditor("themeDescription", value="", mode="text", theme="ambient", readOnly = FALSE,
-                                 height = "60px", fontSize = 12, wordWrap = TRUE),
+                                 height = "60px", fontSize = 12),
                        fixedRow(column(6,colourInput("strokeColor",
                                                      "Stroke color",
                                                      value = "#050505",
@@ -147,13 +144,13 @@ absolutePanel(id = "datatable", class = "panel panel-default", fixed = TRUE,
               #                          actionLink("legendNew", label = "New"))),
               #          h5(tags$strong("Tags")),
               #          aceEditor("legendTags", value="", mode="text", theme="ambient", readOnly = FALSE,
-              #                    height = "60px", fontSize = 12, wordWrap = TRUE),
+              #                    height = "60px", fontSize = 12),
               #          h5(tags$strong("Description")),
               #          aceEditor("legendDescription", value="", mode="text", theme="ambient", readOnly = FALSE,
-              #                    height = "60px", fontSize = 12, wordWrap = TRUE),
+              #                    height = "60px", fontSize = 12),
               #          h5(tags$strong("Resources")),
               #          aceEditor("legendResources", value="", mode="text", theme="ambient", readOnly = FALSE,
-              #                    height = "60px", fontSize = 12, wordWrap = TRUE),
+              #                    height = "60px", fontSize = 12),
               #          actionButton("legendAdd", label = "Save legend")
               # ),
               tabPanel("Maps",
@@ -167,15 +164,34 @@ absolutePanel(id = "datatable", class = "panel panel-default", fixed = TRUE,
                        #             inline = TRUE),
                        h5(tags$strong("Tags")),
                        aceEditor("mapTags", value = "" , mode="text", theme="ambient", readOnly = TRUE,
-                                 height = "60px", fontSize = 12, wordWrap = TRUE),
+                                 height = "60px", fontSize = 12),
                        h5(tags$strong("Description")),
                        aceEditor("mapDescription", value="", mode="text", theme="ambient", readOnly = FALSE,
-                                 height = "60px", fontSize = 12, wordWrap = TRUE),
+                                 height = "60px", fontSize = 12),
                        actionButton("mapAdd", label = "Add to map")
                        )
               
               )
-        )
+        ),
+absolutePanel(id = "controls", class = "panel panel-default", fixed = TRUE,
+              draggable = TRUE, top = 60, left = "auto", right = 20, bottom = "auto",
+              width = 330, height = "auto",
+              h2("Chat"),
+              uiOutput("chat"),
+              # Create the bottom bar to allow users to chat.
+              fluidRow(
+                div(class="span10",
+                    textInput("entry", "")
+                ),
+                div(class="span2 center",
+                    actionButton("send", "Send")
+                ),
+                textInput("user", "Your User ID:", value=""),
+                tags$hr(),
+                helpText(HTML("<p>Built using R & <a href = \"http://rstudio.com/shiny/\">Shiny</a>.<p>Source code available <a href =\"https://github.com/trestletech/ShinyChat\">on GitHub</a>."))
+              )
+              
+)
 )
 
 
