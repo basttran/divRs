@@ -1,2 +1,4 @@
-# divRs
-Collaborative environmental planning tool
+# divRs - Collaborative environmental planning tool
+
+
+
