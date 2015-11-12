@@ -3,20 +3,8 @@ library(leaflet)
 library(shinyjs)
 library(shinyAce)
 
-jsCode <- 'shinyjs.focusNextInputField = function() {
-  var el = document.getElementById("elementDescription");
-  el.textarea.focus();
-//    alert("lol jk");
-}'
 
-
-
-
-
-
-shinyUI(fluidPage(useShinyjs(),
-                  extendShinyjs(text = jsCode),
-                  mainPanel(h3("divRs"),
+shinyUI(fluidPage(mainPanel(h3("divRs"),
                             tags$div(id="cite",
                                      'Collaborative mapping for ', 
                                      tags$em('AMORAD 2015'), 

@@ -217,6 +217,45 @@ shinyServer(function(input, output, session) {
     }
   })
   
+  observeEvent(input$map_shape_click, { # if no marker is clicked a new one is created
+    if (input$elementType != 3) {
+      return()      
+    } else { 
+      if (is.null(client$buffer)) { # we check if a polygon is already underway
+        ## if not, store its id in client$current and save spot in server$elements
+        client$current <- as.character(as.integer(length(server$elements)+1))
+        server$elements[[client$current]] <- client$current
+      } # if yes we'll add the new points to the polygon's definition
+      event <- input$map_shape_click # we store the event's info
+      saveRDS(event,"event.Rds")
+      id <- as.character(as.integer(length(server$elements))+1) # new marker's id
+      saveRDS(id,"id.Rds")
+      saveRDS(client$current,"current.Rds")
+      client$selected <- data.frame(lng = event$lng, # the new marker's data
+                                    lat = event$lat,
+                                    layerId = id,
+                                    pointId = id,
+                                    user = as.character(input$elementName),
+                                    stringsAsFactors = FALSE)
+      client$buffer <- rbind(client$buffer,client$selected) # added to poly data
+      ## and stored in server$points, where we will later retrieve its data
+      server$points[[length(server$points)+1]] <- client$selected
+      ## and we store its ref in server$elements
+      server$elements[[id]] <- data.frame(layerId = as.character(id),
+                                          type = "point",
+                                          author = input$elementName)
+      ## we display this new marker as well as a temporary polygon
+      leafletProxy("map") %>% addCircleMarkers(lng = as.double(event$lng),
+                                               lat = as.double(event$lat),
+                                               layerId = id,
+                                               color = "grey")
+      leafletProxy("map") %>% addPolygons(lng=client$buffer$lng,
+                                          lat=client$buffer$lat,
+                                          layerId="buffer",
+                                          color = "grey")
+    }
+  })
+  
   observeEvent(input$map_marker_click, { # if a marker is clicked add it to poly
     if (input$elementType != 3) {
       return()
